@@ -23,6 +23,7 @@ module Ethereum
       if @log == true
         @logger = Logger.new("/tmp/ethereum_ruby_http.log")
       end
+      @state = 'latest'
     end
 
     def self.create(host_or_ipcpath, log = false)
@@ -57,7 +58,7 @@ module Ethereum
     end
 
     def int_to_hex(p)
-      p.is_a?(Integer) ? "0x#{p.to_s(16)}" : p 
+      p.is_a?(Integer) ? "0x#{p.to_s(16)}" : p
     end
 
     def encode_params(params)
@@ -75,7 +76,7 @@ module Ethereum
     def get_nonce(address)
       eth_get_transaction_count(address, "latest")["result"].to_i(16)
     end
-    
+
 
     def transfer_to(address, amount)
       eth_send_transaction({to: address, value: int_to_hex(amount)})
@@ -88,7 +89,7 @@ module Ethereum
 
     def transfer(key, address, amount)
       Eth.configure { |c| c.chain_id = net_version["result"].to_i }
-      args = { 
+      args = {
         from: key.address,
         to: address,
         value: amount,
@@ -101,20 +102,24 @@ module Ethereum
       tx.sign key
       eth_send_raw_transaction(tx.hex)["result"]
     end
-    
+
     def transfer_and_wait(key, address, amount)
       return wait_for(transfer(key, address, amount))
     end
-    
+
     def wait_for(tx)
       transaction = Ethereum::Transaction.new(tx, self, "", [])
       transaction.wait_for_miner
       return transaction
     end
 
+    def set_state(state)
+      @state = state
+    end
+
     def send_command(command,args)
       if ["eth_getBalance", "eth_call"].include?(command)
-        args << "latest"
+        args << @state
       end
 
       payload = {jsonrpc: "2.0", method: command, params: encode_params(args), id: get_id}
